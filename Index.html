@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>INSTA Pucón</title>
+
+  <!-- Configuración PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <!-- Tailwind CSS CDN para estilos rápida y limpiamente -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Librerías para exportar a Excel y PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Encabezado -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-3xl mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold tracking-wider text-indigo-400">INSTA PUCÓN</h1>
+      <span id="fecha-actual" class="text-sm text-slate-400 font-medium"></span>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-3xl w-full mx-auto p-4 space-y-6">
+
+    <!-- Sección de Registro / Métricas -->
+    <section class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-md">
+      <h2 class="text-lg font-semibold mb-4 text-slate-200">Panel de Control Diario</h2>
+      
+      <!-- Meta Diaria -->
+      <div class="mb-6 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+        <div class="flex justify-between items-center mb-2">
+          <label for="input-meta" class="text-sm text-slate-300 font-medium">Meta Diaria (unidades):</label>
+          <input type="number" id="input-meta" min="1" class="w-24 bg-slate-800 border border-slate-600 rounded-lg px-3 py-1 text-right text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" value="100">
+        </div>
+        <!-- Barra de Progreso -->
+        <div class="w-full bg-slate-700 h-4 rounded-full overflow-hidden mt-3">
+          <div id="barra-progreso" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <p id="texto-progreso" class="text-xs text-right mt-1 text-slate-400">0 / 100 (0%)</p>
+      </div>
+
+      <!-- Contadores principales -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-slate-900 p-4 rounded-xl text-center border border-slate-700">
+          <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Hoy</span>
+          <p id="total-hoy" class="text-3xl font-extrabold text-emerald-400 mt-1">0</p>
+        </div>
+        <div class="bg-slate-900 p-4 rounded-xl text-center border border-slate-700">
+          <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Registros</span>
+          <p id="cant-registros" class="text-3xl font-extrabold text-indigo-400 mt-1">0</p>
+        </div>
+      </div>
+
+      <!-- Formulario para agregar registro -->
+      <div class="flex gap-2">
+        <input type="number" id="input-cantidad" placeholder="Cantidad..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <button id="btn-agregar" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md active:scale-95">
+          Agregar
+        </button>
+      </div>
+    </section>
+
+    <!-- Histórico y Exportación -->
+    <section class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-md">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <h2 class="text-lg font-semibold text-slate-200">Histórico de Registros</h2>
+        
+        <!-- Botones de Exportación -->
+        <div class="flex gap-2 w-full sm:w-auto">
+          <button id="btn-excel" class="flex-1 sm:flex-initial bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all">
+            Excel / CSV
+          </button>
+          <button id="btn-pdf" class="flex-1 sm:flex-initial bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all">
+            PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla / Lista -->
+      <div class="max-h-60 overflow-y-auto rounded-xl border border-slate-700">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900 text-slate-400 uppercase text-xs sticky top-0">
+            <tr>
+              <th class="p-3">Hora / Fecha</th>
+              <th class="p-3 text-right">Cantidad</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-historico" class="divide-y divide-slate-700/50">
+            <!-- Filas dinámicas -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Acciones Peligrosas -->
+      <div class="mt-6 pt-4 border-t border-slate-700/60 flex gap-3">
+        <button id="btn-reiniciar-dia" class="flex-1 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-600/30 text-xs font-bold py-2.5 rounded-xl transition-all">
+          Reiniciar Día
+        </button>
+        <button id="btn-borrar-todo" class="flex-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-600/30 text-xs font-bold py-2.5 rounded-xl transition-all">
+          Borrar Histórico
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Lógica JavaScript -->
+  <script>
+    // Configuración Inicial
+    const PIN_CORRECTO = "5142";
+    let historico = JSON.parse(localStorage.getItem('insta_pucon_historico')) || [];
+    let metaDiaria = parseInt(localStorage.getItem('insta_pucon_meta')) || 100;
+
+    // Elementos DOM
+    const inputMeta = document.getElementById('input-meta');
+    const inputCantidad = document.getElementById('input-cantidad');
+    const btnAgregar = document.getElementById('btn-agregar');
+    const totalHoyEl = document.getElementById('total-hoy');
+    const cantRegistrosEl = document.getElementById('cant-registros');
+    const barraProgreso = document.getElementById('barra-progreso');
+    const textoProgreso = document.getElementById('texto-progreso');
+    const tablaHistorico = document.getElementById('tabla-historico');
+    const fechaActualEl = document.getElementById('fecha-actual');
+
+    // Inicialización
+    inputMeta.value = metaDiaria;
+    fechaActualEl.textContent = new Date().toLocaleDateString('es-CL', { weekday: 'short', month: 'short', day: 'numeric' });
+    actualizarInterfaz();
+
+    // Guardar Meta Diaria
+    inputMeta.addEventListener('change', () => {
+      metaDiaria = parseInt(inputMeta.value) || 1;
+      localStorage.setItem('insta_pucon_meta', metaDiaria);
+      actualizarInterfaz();
+    });
+
+    // Agregar Registro
+    btnAgregar.addEventListener('click', () => {
+      const val = parseInt(inputCantidad.value);
+      if (isNaN(val) || val <= 0) return;
+
+      const nuevoRegistro = {
+        fecha: new Date().toLocaleString('es-CL'),
+        timestamp: new Date().toISOString(),
+        cantidad: val
+      };
+
+      historico.unshift(nuevoRegistro);
+      localStorage.setItem('insta_pucon_historico', JSON.stringify(historico));
+      inputCantidad.value = '';
+      actualizarInterfaz();
+    });
+
+    // Validar PIN de Seguridad
+    function solicitarPIN(accionCallback) {
+      const pinIngresado = prompt("Seguridad INSTA Pucón\nIngresa el PIN de 4 dígitos para autorizar:");
+      if (pinIngresado === PIN_CORRECTO) {
+        accionCallback();
+      } else if (pinIngresado !== null) {
+        alert("PIN Incorrecto. Acción cancelada.");
+      }
+    }
+
+    // Reiniciar Día
+    document.getElementById('btn-reiniciar-dia').addEventListener('click', () => {
+      solicitarPIN(() => {
+        const hoy = new Date().toLocaleDateString('es-CL');
+        historico = historico.filter(item => new Date(item.timestamp).toLocaleDateString('es-CL') !== hoy);
+        localStorage.setItem('insta_pucon_historico', JSON.stringify(historico));
+        actualizarInterfaz();
+      });
+    });
+
+    // Borrar Todo
+    document.getElementById('btn-borrar-todo').addEventListener('click', () => {
+      solicitarPIN(() => {
+        historico = [];
+        localStorage.removeItem('insta_pucon_historico');
+        actualizarInterfaz();
+      });
+    });
+
+    // Renderizar / Actualizar Pantalla
+    function actualizarInterfaz() {
+      const hoyStr = new Date().toLocaleDateString('es-CL');
+      const registrosHoy = historico.filter(i => new Date(i.timestamp).toLocaleDateString('es-CL') === hoyStr);
+      const totalHoy = registrosHoy.reduce((acc, curr) => acc + curr.cantidad, 0);
+
+      totalHoyEl.textContent = totalHoy;
+      cantRegistrosEl.textContent = registrosHoy.length;
+
+      // Actualizar Progreso
+      const porcentaje = Math.min(Math.round((totalHoy / metaDiaria) * 100), 100);
+      barraProgreso.style.width = `${porcentaje}%`;
+      textoProgreso.textContent = `${totalHoy} / ${metaDiaria} (${porcentaje}%)`;
+
+      // Render Tabla
+      tablaHistorico.innerHTML = historico.length === 0 
+        ? `<tr><td colspan="2" class="p-4 text-center text-slate-500">Sin registros guardados</td></tr>`
+        : historico.map(item => `
+            <tr class="hover:bg-slate-700/30">
+              <td class="p-3 text-slate-400">${item.fecha}</td>
+              <td class="p-3 text-right font-bold text-slate-200">+${item.cantidad}</td>
+            </tr>
+          `).join('');
+    }
+
+    // Exportar a Excel
+    document.getElementById('btn-excel').addEventListener('click', () => {
+      if (historico.length === 0) return alert("No hay datos para exportar.");
+      const data = historico.map(h => ({ Fecha: h.fecha, Cantidad: h.cantidad }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Historial");
+      XLSX.writeFile(wb, `INSTA_Pucon_Historial_${new Date().toISOString().slice(0,10)}.xlsx`);
+    });
+
+    // Exportar a PDF
+    document.getElementById('btn-pdf').addEventListener('click', () => {
+      if (historico.length === 0) return alert("No hay datos para exportar.");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      
+      doc.text("INSTA Pucón - Histórico de Registros", 14, 15);
+      const filas = historico.map(h => [h.fecha, h.cantidad]);
+      
+      doc.autoTable({
+        head: [['Fecha / Hora', 'Cantidad']],
+        body: filas,
+        startY: 20,
+      });
+
+      doc.save(`INSTA_Pucon_Historial_${new Date().toISOString().slice(0,10)}.pdf`);
+    });
+
+    // Registro del Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
